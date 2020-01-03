@@ -1,0 +1,707 @@
+---
+title: "PRÀCTICA 2: Neteja i validació de les dades"
+header-includes:
+  - \usepackage[catalan]{babel}
+author: "Marc Guerrero Molero"
+date: '`r format(Sys.Date(),"%e de %B, %Y")`'
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+bibliography: scholar.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_libraries, include=FALSE}
+#Per evitar problemes amb llibreries no instal·lades
+if(!require(knitr)){
+  install.packages("knitr", repos = "https://cran.rstudio.com")
+  library(knitr)
+}
+if(!require(utils)){
+  install.packages("utils", repos = "https://cran.rstudio.com")
+  library(utils)
+}
+if(!require(VIM)){
+  install.packages("VIM", repos = "https://cran.rstudio.com")
+  library(VIM)
+}
+if(!require(ggplot2)){
+  install.packages("ggplot2", repos = "https://cran.rstudio.com")
+  library(ggplot2)
+}
+if(!require(car)){
+  install.packages("car", repos = "https://cran.rstudio.com")
+  library(car)
+}
+if(!require(reshape2)){
+  install.packages("reshape2", repos = "https://cran.rstudio.com")
+  library(reshape2)
+}
+if(!require(dplyr)){
+  install.packages("dplyr", repos = "https://cran.rstudio.com")
+  library(dplyr)
+}
+if(!require(caret)){
+  install.packages("caret", repos = "https://cran.rstudio.com")
+  library(caret)
+}
+if(!require(pROC)){
+  install.packages("pROC", repos = "https://cran.rstudio.com")
+  library(pROC)
+}
+if(!require(randomForest)){
+  install.packages("randomForest", repos = "https://cran.rstudio.com")
+  library(randomForest)
+}
+if(!require(rminer)){
+  install.packages("rminer", repos = "https://cran.rstudio.com")
+  library(rminer)
+}
+
+```
+
+# 1. Detalls de l'activitat
+
+## 1.1. Descripció
+
+En aquesta pràctica s'elabora un cas pràctic orientat a aprendre a identificar les dades rellevants per un projecte analític i usar les eines d'integració, neteja, validació i anàlisi de les mateixes.
+
+## 1.2. Objectius
+
+Els objectius concrets d’aquesta pràctica són:
+
+* Aprendre a aplicar els coneixements adquirits i la seva capacitat de resolució de problemes en entorns nous o poc coneguts dintre de contextos més amplis o multidisciplinaris.
+
+* Saber identificar les dades rellevants i els tractaments necessaris (integració, neteja i validació) per dur a terme un projecte analític.
+
+* Aprendre a analitzar les dades adequadament per abordar la informació continguda en les dades.
+
+* Identificar la millor representació dels resultats per tal d’aportar conclusions sobre el problema plantejat en el procés analític.
+
+* Actuar amb els principis ètics i legals relacionats amb la manipulació de dades en funció de l'àmbit d'aplicació.
+
+* Desenvolupar les habilitats d'aprenentatge que els permetin continuar estudiant d'una manera que haurà de ser en gran manera autodirigida o autònoma.
+
+* Desenvolupar la capacitat de cerca, gestió i ús d'informació i recursos en l'àmbit de la ciència de dades.
+
+## 1.3. Competències
+
+Les competències del màster de Data Science que es desenvolupen en aquesta pràctica són:
+
+* Capacitat d'analitzar un problema en el nivell d'abstracció adequat a cada situació i aplicar les habilitats i coneixements adquirits per abordar-lo i resoldre'l.
+
+* Capacitat per aplicar les tècniques específiques de tractament de dades (integració, transformació, neteja i validació) per al seu posterior anàlisi.
+
+# 2. Resolució
+
+## 2.1. Descripció del dataset
+
+El conjunt de dades que es farà servir en aquesta pràctica es tracta del Titànic obtingut de la web *Kaggle*. Aquest *dataset* tracta sobre característiques d'individus que anaven al Titànic on l'objectiu és predir si aquests han sigut capaços de sobreviure a l'accident.
+
+En els camps del joc de dades trobem els següents:
+
+* **Survival**: 1 en cas que el passatger ha sobreviscut, 0 en cas contrari.
+* **Pclass**: Classe socioeconòmica del passatger. Hi ha tres classes 1: 1st (alta), 2: 2nd (mtijana), 3: 3rd (Baixa).
+* **Sex**: Sexe del passatger.
+* **Age**: Edat en anys del passatger.
+* **Sibsp**: Nombre de germans, marits i mullers a bord.
+* **Parch**: Nombre de fills i pares a bord.
+* **Ticket**: Número del tiquet.
+* **Fare**: Tarifa del passatger.
+* **Cabin**: Número de cabina.
+* **Embarked**: Port de l'embarcació Hi ha tres tipus: C = Cherbourg, Q = Queenstown, S = Southampton.
+
+Amb l'anàlisi d'aquest joc de dades es pretrén veure quins factors tenen major importància en la supervivència d'una persona en l'accident del Titànic i fer prediccions utilitzant models sobre si un individu sobreviuria en un accident així. 
+
+## 2.2. Integració i selecció de les dades d'interès a analitzar.
+En aquest apartat es llegiran les dades i se seleccionaran aquells atributs que siguin rellevant per l'anàlisi.
+
+```{r message= FALSE, warning=FALSE}
+# Lectura de dades
+df_titanic <- read.csv("../data/titanic.csv", header = TRUE)
+head(df_titanic)
+```
+
+Els atributs que no es faran servir són:
+
+* PassengerId: No dóna cap informació útil sobre el passatger.
+* Name: No dóna cap informació al futur anàlisi.
+* Cabin: Com que no se sap la disposició de les cabines dins del vaixell, aquest paràmetre no aporta informació útil per l'anàlisi.
+* Ticket: El número del tiquet no aporta informació en l'anàlisi.
+
+```{r message= FALSE, warning=FALSE}
+# Esborrem els paràmetres que no es fan servir
+del_col <- c("PassengerId", "Name", "Cabin", "Ticket")
+df_titanic <- df_titanic[ , !(names(df_titanic) %in% del_col)]
+```
+
+Un cop feta la selecció de les dades, s'ha de mirar si els tipus de dades assignats automàticament per l'R són correctes.
+
+```{r message= FALSE, warning=FALSE}
+# Mirem el tipus de les dades
+str(df_titanic)
+```
+
+Com es pot veure, el format de les dades és el correcte.
+
+# 3. Neteja de dades
+## 3.1. Cerca de zeros i elements buits
+En aquest cas, els valors buits estan marcats amb NA, ja que el valor 0 no pot ser utilitzat com a sentinella perquè aquest sí que té un significat en els atributs. Per això, buscarem els registres que contenen NA com a valor.
+
+```{r message= FALSE, warning=FALSE}
+# Mirem valors buits
+sapply(df_titanic, function(x) sum(is.na(x)))
+```
+
+Com es pot observar, en la variable *Age* hi ha 177 registres que contenen el camp buit. Això representa un 20% dels registres, per tant, no es pot esborrar, ja que és un alt percentatge del conjunt de dades. Pel tractament dels valors NA es farà servir l'algoritme *k-nearest neighbors* per la imputació del valor.
+
+```{r message= FALSE, warning=FALSE}
+# Utilitzem la funció kNN del paquet vIM
+knn_df <- kNN(df_titanic)
+df_titanic$Age <- knn_df$Age
+# comprovem que aquest han estat tractats
+sapply(df_titanic, function(x) sum(is.na(x)))
+```
+
+Un cop vist que no hi ha valors buits en la variable *Age*, es pot observar quins són els valors imputats en aquest atribut per l'algoritme.
+
+```{r message= FALSE, warning=FALSE}
+# Visualitzem els valors imputats per l'algoritme
+ggplot(mapping= aes(x=knn_df$Age[knn_df$Age_imp == TRUE]))+ geom_density() +
+labs(x = "Valors imputats en Age", title="Densitat d'imputació en la variable Age", 
+     y= "Densitat")
+```
+
+Com s'observa en la gràfica, els valors imputats amb més freqüència estan entre 20 i 30.
+
+## 3.2. Valors extrems
+
+En aquest apartat es buscaran els valors extrems dins del *dataset*, és a dir, els valors que semblen que no pertanyin a aquest joc de dades. Normalment, els considerats com *outliers* solen distar el seu valor en més de tres desviacions típiques respecte a la mitjana, per tant, s'utilitzaran diagrames de caixes per a detectar-los. En aquests només es representaran aquelles variables que siguin numèriques, és a dir, les variables *Age*, *SibSp*, *Parch* i *Fare*.
+
+```{r message= FALSE, warning=FALSE}
+par(mfrow = c(2,2))
+boxplot(df_titanic$Age,main="Edat", col="blue")
+boxplot(df_titanic$SibSp,main="SibSp", col="red")
+boxplot(df_titanic$Parch,main="Parch", col="green")
+boxplot(df_titanic$Fare,main="Fare", col="orange")
+```
+
+Seguidament, es mostren els valor que han estat considerats com extrems.
+
+```{r message= FALSE, warning=FALSE}
+boxplot.stats(df_titanic$Age)$out
+boxplot.stats(df_titanic$SibSp)$out
+boxplot.stats(df_titanic$Parch)$out
+boxplot.stats(df_titanic$Fare)$out
+```
+
+Un cop vist aquests valors, es pot observar que els *outliers* en la variable edat entren dins del que es podria considerar rangs normals, ja que tots estan per sota dels vuitanta anys. Per tant, en aquest cas no s'aplica cap mesura.
+
+En el cas de l'atribut SibSp, abans de prendre cap decisió, s'ha de tenir en compte els valors dels altres registres. Per a poder examinar-los, es miren els registres que tinguin un valor igual o superior a 5, ja que marcarien una família bastant gran i, per tant, podria significar un cas estrany.
+
+```{r message= FALSE, warning=FALSE}
+df_titanic[df_titanic$SibSp >= 5,]
+```
+
+Unes de les característiques que s'han de complir és que hi haguin el mateix més un nombre de registres amb el mateix valor, ja que si es té 8 germans en el mateix vaixell, hi ha d'haver 9 persones que tinguin 8 germans o germanastres. Si observem els valors anteriorment mostrats, es pot veure que no es compleix degut a que suposadament faltaría un membre de la família. Tot i així, es considera que més que una dada anòmala hi ha algun tipus de pèrdua d'informació en el *dataset*. També cal tenir en compte l'època de les dades, és a dir, avui en dia sería molt més anòmal trobar una família de vuit germans que anteriorment i, per tant, aquests casos s'han de considerar com factibles.
+
+En conclusió, després de les observacions fetes, es pot concloure que aquests valors no són *outliers* i entren dins del rang de possibles ocurrències.
+
+Seguidament, s'exploraran els valors extrems de la variable Parch amb un valor superior a 2. S'ha de tenir en compte que els valors extrems d'aquesta variable han de ser tractats amb certa precaució, ja que la majoria de registres contenen el valor 0 i, per tant, valors com 2, que poden marcar els dos pares, són considerats com *outliers*. Per tant, per a explorar els valors es tindran en compte els que siguin majors a 2.
+
+```{r message= FALSE, warning=FALSE}
+df_titanic[df_titanic$Parch > 2,]
+```
+
+Observant les dades, es pot veure que els valors iguals o més petits que 6 tenen una explicació bastant lògica considerant que en el vaixell poden viatjar els dos pares i entre dos i quatre fills. A més a més, si es compara amb l'edat, aquesta està dins de rangs on aquest tipus de família pot encaixar. Ara bé, hi ha un cas on el nombre de fills i pares és 3 i l'edat és de 16. Això implicaria viatjar amb els dos pares i un fill i, per tant, seria un cas molt anòmal tenir aquesta edat amb aquesta configuració de família. En conseqüència, s'esborrarà aquest registre.
+
+```{r message= FALSE, warning=FALSE}
+df_titanic <- df_titanic[!(df_titanic$Parch == 3 & df_titanic$Age == 16),]
+```
+
+Per últim, en el preu del tiquet del vaixell es procedirà de la mateixa manera que en el cas anterior. Primerament, s'observen les dades.
+
+```{r message= FALSE, warning=FALSE}
+df_titanic[df_titanic$Fare > 200,]
+```
+
+Com es pot veure, hi ha molts valors entre 200 i 300. Això pot significar una compra d'última hora coincidint que tots pertanyen a primera classe socioeconòmica. Hi ha tres casos estranys on el valor és aproximadament el doble que el següent valor més alt. Aquest serà considerat anòmal i s'utilitzarà l'algoritme KNN per fer una imputació més justa d'aquest preu.
+
+```{r message= FALSE, warning=FALSE}
+df_titanic[df_titanic$Fare > 500,"Fare"] = NA
+knn_df <- kNN(df_titanic)
+df_titanic$Fare <- knn_df$Fare
+#visualitzem el nou valor imputat
+knn_df[knn_df$Fare_imp == TRUE,"Fare"]
+```
+
+Un cop imputat aquest valor, es dóna per finalitzat el tractament dels valors extrems.
+
+## 3.3. Exportació de les dades
+
+En aquest apartat, s'exporten les dades processades en els apartats anteriors.
+
+```{r message= FALSE, warning=FALSE}
+# Exportació de les dades
+write.csv(df_titanic, "../data/titanic_clean.csv")
+```
+
+# 4. Anàlisi de dades
+## 4.1. Selecció dels grups de dades
+
+En aquest apartat, se separaran diversos grups per a poder ser comparats entre ells. Aquests seran els següents:
+
+* Homes vs Dones
+* Nens (menors de 18), adults (entre 18 i 50) i gent gran (majors de 50)
+* Classe socioeconòmica
+* Tenen família vs no tenen família a bord
+* Port d'embarcació
+
+Els grups es dividiran en el moment de l'anàlisi, però si cal recodificar algunes variables i crear unes de noves per a complir amb els criteris anteriors.
+
+```{r message= FALSE, warning=FALSE}
+#Nens, adults i gent gran
+df_titanic$Age_group <- df_titanic$Age
+df_titanic$Age_group[df_titanic$Age<18] = "children"
+df_titanic$Age_group[df_titanic$Age>=18 & df_titanic$Age<50] = "adult"
+df_titanic$Age_group[df_titanic$Age>=50] = "old"
+df_titanic$Age_group <- as.factor(df_titanic$Age_group)
+
+# Classe socioeconòmica
+df_titanic$Pclass[df_titanic$Pclass == 1] = "upper"
+df_titanic$Pclass[df_titanic$Pclass == 2] = "middle"
+df_titanic$Pclass[df_titanic$Pclass == 3] = "lower"
+df_titanic$Pclass <- as.factor(df_titanic$Pclass)
+
+# Tenen família vs no tenen família a bord (nou atribut)
+df_titanic$family <- df_titanic$Age
+df_titanic$family[df_titanic$SibSp== 0 & df_titanic$Parch == 0] = "yes"
+df_titanic$family[df_titanic$SibSp!= 0 | df_titanic$Parch != 0] = "no"
+df_titanic$family <- as.factor(df_titanic$family)
+```
+
+Cal esmentar que la comparació final dels grups proposats dependrà dels resultats que s'obtinguin en els apartats següents.
+
+Un cop separades les dades seguint els criteris establerts, s'ha de comprovar que aquestes són normals i examinar l'homogeneïtat de la variància.
+
+## 4.2. Comprovació de la normalitat i homogeneïtat de la variància.
+
+Per a la comprovació que cada variable quantitativa del *dataset* prové d'una població distribuïda normalment, s'utilitzarà el test de Shapiro-Wilk, ja que aquest és considerat un dels mètodes més potents per contrastar la normalitat. Per a fer-ho, s'utilitzarà la funció *shapiro.test()* en cada variable quantitativa marcant el nivell de significació en 0.05.
+
+```{r message= FALSE, warning=FALSE}
+col <- c("Age", "Fare", "SibSp", "Parch")
+result <- data.frame(
+  "Age" = TRUE, 
+  "Fare" = TRUE, 
+  "SibSp" = TRUE,
+  "Parch" = TRUE
+)
+for (i in col){
+  if(shapiro.test(df_titanic[,i])$p.value < 0.05){
+    result[1,i] = FALSE
+  }
+}
+result
+  
+```
+
+Com marca la sortida del codi anterior, on es comprova si el resultat del test accepta que les dades segueixen una distribució normal, es pot veure que cap dels atributs anteriors ha donat positiu. Per tant, s'ha de considerar que no hi ha normalitat en les dades.
+
+Per a veure-ho amb més claredat, es pot utilitzar eina visual com el gràfic QQ plot.
+
+```{r message= FALSE, warning=FALSE}
+par(mfrow = c(2,2))
+qqnorm(df_titanic$Age)
+qqline(df_titanic$Age)
+qqnorm(df_titanic$Fare)
+qqline(df_titanic$Fare)
+qqnorm(df_titanic$SibSp)
+qqline(df_titanic$SibSp)
+qqnorm(df_titanic$Parch)
+qqline(df_titanic$Parch)
+```
+
+Per altra banda, cada atribut té un nombre superior a 30 registres, per tant, seguint el teorema del límit central, es pot assumir que el seu estadístic de contrast es comporta com una distribució normal, per tant, es poden aplicar test per a dades normals.
+
+Per a comprovar l'homoscedasticitat de la variància, es poden aplicar dos tipus de test: els paramètrics, en el cas que se segueixi una distribució normal i els no paramètrics en el cas de no seguir cap mena de distribució. En aquest cas, es considerarà el test de *Levene*, ja que els paramètrics solen ser més robustos i, encara que les dades no segueixin una distribució normal, d'acord amb el teorema del límit central, es considera que les dades es comporten distribució normal de mitjana de població $\mu$ i variància $\frac{\sigma^2}{\sqrt{N}}$.
+
+```{r message= FALSE, warning=FALSE}
+leveneTest(y = df_titanic$Survived, group = df_titanic$Sex)
+leveneTest(y = df_titanic$Survived, group = df_titanic$Age_group)
+leveneTest(y = df_titanic$Survived, group = df_titanic$Pclass)
+leveneTest(y = df_titanic$Survived, group = df_titanic$family)
+leveneTest(y = df_titanic$Survived, group = df_titanic$Embarked)
+```
+
+Tal com es pot veure en les execucions anteriors del test, en tots els casos rebutgem la hipòtesi nul·la, és a dir, la hipòtesi on es considera que hi ha homoscedasticitat en la variància entre les classes comparades. Cal comentar que en aquest cas, la variable que marca la supervivència de l'individu, és una variable dicotòmica i, per tant, l'homoscedasticitat de la variància està molt relacionada amb la freqüència d'aparició.
+
+# 5. Aplicació de proves estadístiques
+
+En aquest apartat s'aplicaràn quatre tipus de proves estadístiques per a poder treure informaició de les dades i veure si així es pot predir la supervivència d'un nou individu entrenant models predictius.
+
+Per això, es calcularà la matriu de correlacions per a tenir més informació sobre la correlació entre els atributs i també entre els atributs i la variable que marca la supervivència. A més a més, s'aplicaran contrastos d'hipòtesis entre els grups proposats anteriorment en concordança amb la matriu de correlacions.
+
+Un cop obtinguts els resultats, s'aplicaran models per a intentar predir la supervivència dels individus. Els que s'utilitzaran són els següents:
+
+* Regressió logistica
+* Random Forest
+
+## 5.1. Matriu de correlació
+
+Per a tenir més informació entre les variables, es calcula la matriu de correlació. La informació que et proporciona és com de correlades estan les variables mitjançant el coeficient de correlació i si és una correlació positiva o negativa depenent del signe de la variable.
+
+```{r message= FALSE, warning=FALSE}
+#aux_dataframe per a fer les variables numèriques
+aux_titanic <- df_titanic
+for (i in colnames(df_titanic)){
+  aux_titanic[,i] <- as.numeric(aux_titanic[,i])
+}
+cor(aux_titanic)
+```
+
+Per poder extreure conclusions d'una forma més còmode, es pot utilitzar l'eina de visualització *heat map*, que és un gràfic especial per a representar matrius de correlació.
+
+```{r message= FALSE, warning=FALSE}
+cormat <- cor(aux_titanic)
+# Transformem la matriu per a poder ser representada
+melted_cormat <- melt(cormat)
+# Heatmap
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+  
+geom_tile(color = "white")+  
+scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+midpoint = 0, limit = c(-1,1), space = "Lab", name="Correlació de \nPearson") +
+theme_minimal()+ 
+theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1))+ 
+coord_fixed() + labs(title="Heatmap")
+```
+
+A més a més, es mostren els valors de més alt a més baix mitjançant el paquet *dplyr*, així es pot trobar més fàcilment els coeficients de correlació més alts amb la variable *Survived*.
+
+```{r message= FALSE, warning=FALSE}
+melted_cormat <- melted_cormat %>% filter(value !=1.0) %>% filter(Var1 == "Survived")
+arrange(melted_cormat, desc(abs(value)))
+```
+
+Tal com es pot veure, la variable que més correlacionada està amb la variable *Survived* és el sexe i la que menys és a quin grup d'edat pertany. Aquesta informació ens pot ser útil per a intentar construir models descartant les variables que menys correlació tenen amb la sortida final i, per tant, veure si el model millora utilitzant menys informació.
+
+Per últim, es visualitza un diagrama de freqüència per mostrar la diferència entre la supervivència classificada pels dos atributs amb més correlació i el que menys en té.
+
+```{r message= FALSE, warning=FALSE}
+ggplot(data = aux_titanic,aes(x=Sex,fill=as.factor(Survived)))+
+geom_bar(position="fill")+
+ylab("Frequència") +
+xlab("Sexe") + 
+ggtitle("Supervivència per sexe") +
+labs(fill = "Supervivent")
+ggplot(data = aux_titanic,aes(x=Pclass,fill=as.factor(Survived)))+
+geom_bar(position="fill")+
+ylab("Frequència") +
+xlab("Classe socioecònomica") +
+ggtitle("Supervivència per classe") +
+labs(fill = "Supervivent")
+```
+
+```{r message= FALSE, warning=FALSE}
+ggplot(data = aux_titanic,aes(x=Age_group,fill=as.factor(Survived)))+
+geom_bar(position="fill")+
+ylab("Frequència") +
+xlab("Grup d'edat") + 
+ggtitle("Supervivència per grup d'edat") + 
+labs(fill = "Supervivent")
+```
+
+Com es pot veure en les gràfiques anteriors, hi ha més variablitat en la supervivència entre sexe o classe socioeconòmica que entre grups d'edat.
+
+## 5.2. Contrast d'hipòtesis
+
+Tal com s'ha vist anteriorment, la variable amb el coeficient de correlació més alt és la del sexe. Per tant, ens podem preguntar si estadísticament els homes i les dones sobreviuen per igual o hi ha una diferència significativa degut al sexe. 
+Per a resoldre-ho, s'aplica un test de *t-student* bilateral, és a dir, les hipòtesis són les següents:
+
+$$H_0: \mu_0 - \mu_1 = 0$$
+$$H_0: \mu_0 - \mu_1 \neq 0$$
+
+Seguidament, s'aplica el test per a decidir si es rebutja o s'accepta la hipòtesi nul·la.
+
+```{r message= FALSE, warning=FALSE}
+t.test(df_titanic[df_titanic$Sex=="male","Survived"], 
+       df_titanic[df_titanic$Sex=="female","Survived"])
+```
+
+Tal com mostra el resultat del test, es pot dir que, estadísticament, amb un valor de significació del 0.05, hi ha una diferència entre les dues mitjanes i, per tant, s'ha d'acceptar que la mitjana de supervivència depèn del sexe.
+
+Ara, s'executa el test proposant com a hipòtesi alternativa que els homes sobreviuen més que les dones.
+
+```{r message= FALSE, warning=FALSE}
+t.test(df_titanic[df_titanic$Sex=="male","Survived"], 
+       df_titanic[df_titanic$Sex=="female","Survived"], alternative = "less")
+```
+
+Tal com es mostra, també es rebutja la hipòtesi nul·la acceptant que, estadísticament, els homes de mitjana sobreviuen més que les dones.
+
+Seguidament, es fa un contrast d'hipòtesis en la segona variable més correlacionada, la classe socioeconòmica, és a dir, es farà un contrast entre els grups establerts en l'apartat anterior de tipus de classes. Com hi ha més de dos grups, s'utilitzarà el test ANOVA per determinar si la mitjana de supervivència és estadísticament diferent en els tres tipus de classe.
+
+```{r message= FALSE, warning=FALSE}
+result_aov <- aov(Survived ~ Pclass, data = df_titanic)
+summary(result_aov)
+```
+
+Tal com marca el resultat anterior, es pot dir que, estadísticament, hi ha diferència entre les mitjanes de supervivència de les diferents classe.
+
+Per altra banda, tal com s'ha fet en l'apartat anterior, es farà un test ANOVA per a la variable menys correlada, és a dir, per al grup d'edat.
+
+```{r message= FALSE, warning=FALSE}
+result_aov <- aov(Survived ~ Age_group, data = df_titanic)
+summary(result_aov)
+```
+
+En aquest cas, encara que la correlació sigui baixa, no es pot afirmar que estadísticament les mitjanes de les variables siguin iguals.
+
+## 5.3. Regressió logistica
+
+En aquest apartat, s'intentarà construir, utilitzant la informació obtinguda en els apartats anteriors, un model que sigui capaç de classificar entre si un individu sobreviu o no sobreviu. Primerament, s'utilitzarà un model logístic amb totes les variables que es tenen al *dataset*. Per evitar *overfitting*, s'utilitzarà la validació creuada per extreure la capacitat de predir del model. 
+
+```{r message= FALSE, warning=FALSE}
+# Utilitzem el dataframe recodificat a numeric anteriorment
+# Reconfigurem la variable Survived com a factor per a fer classificació
+aux_titanic$Survived[aux_titanic$Survived==1] = "yes" 
+aux_titanic$Survived[aux_titanic$Survived==0] = "no" 
+aux_titanic$Survived <- as.factor(aux_titanic$Survived)
+complete_log_model <- glm(Survived ~ ., data = aux_titanic, family = binomial)
+summary(complete_log_model)
+```
+
+En aquest cas, es pot veure que segons la columna que marca el valor p de si la variable sigui pertanyent a aquest model, amb un nivell de significació de 0.05, les variables que pertanyen al model són: *Pclass*, *Sex*, *Age* i *SibSp*.
+
+A continuació, s'utilitzarà la validació creuada per a veure el percentatge d'encert del model construït. A més a més, s'utilitzaran les variables esmentades i les variables amb un coeficient de correlació superior a 0.10 en valor absolut vistes en l'apartat 5.1 per a crear dos models més per a comparar amb el primer. Els models creats seran anomenats model complet, model versió 1 i model versió 2, respectivament.
+
+```{r message= FALSE, warning=FALSE}
+#separem dades d'entrenament i dades de avaluació
+h<-holdout(aux_titanic$Survived,ratio=2/3,mode="stratified")
+data_train<-aux_titanic[h$tr,]
+data_test<-aux_titanic[h$ts,]
+
+# complete
+h<-holdout(aux_titanic$Survived,ratio=2/3,mode="stratified")
+data_train<-aux_titanic[h$tr,]
+data_test<-aux_titanic[h$ts,]
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived~., data=data_train, method="glm", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+completelg <- confusionMatrix(pred, data_test$Survived, positive = "yes")
+completelg
+```
+
+```{r message= FALSE, warning=FALSE}
+# V1
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived ~ Pclass + Sex + Age + SibSp + family, 
+           data=data_train, method="glm", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+v1lg <- confusionMatrix(pred, data_test$Survived, positive = "yes")
+v1lg
+```
+
+```{r message= FALSE, warning=FALSE}
+# V2
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived ~ Sex + Pclass + Fare + family + Embarked + Age, 
+           data=data_train, method="glm", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+v2lg<-confusionMatrix(pred, data_test$Survived, positive = "yes")
+v2lg
+```
+
+Si s'examinen els resultats anteriors, els tres models presenten un percentatge d'encerts molt similar, al voltant de 80%. Per tant, no es pot dir que hi hagi un model millor que l'altre i, per tant, s'utilitzarà la corba ROC i l'àrea sota la corba per veure si es pot decidir quin model és millor que l'altre en aquest cas.
+
+```{r message= FALSE, warning=FALSE}
+# roc
+dat_aux <- aux_titanic
+log_model_v2 <- glm(Survived ~ Sex + Pclass + Fare + family + Embarked + Age, 
+                                            data = aux_titanic, family = binomial)
+prob=predict(complete_log_model,type=c("response"))
+dat_aux$prob=prob
+roc <- roc(Survived ~ prob, data = dat_aux)
+plot(roc, main="ROC model complet")
+
+```
+
+```{r message= FALSE, warning=FALSE}
+# roc
+dat_aux <- aux_titanic
+log_model_v1 <- glm(Survived ~ Pclass + Sex + Age + SibSp, 
+                    data = aux_titanic, family = binomial)
+prob=predict(log_model_v1,type=c("response"))
+dat_aux$prob=prob
+roc1 <- roc(Survived ~ prob, data = dat_aux)
+plot(roc1, main="ROC model v1")
+```
+
+```{r message= FALSE, warning=FALSE}
+# roc
+dat_aux <- aux_titanic
+log_model_v2 <- glm(Survived ~ Sex + Pclass + Fare + family + Embarked + Age, 
+                                            data = aux_titanic, family = binomial)
+prob=predict(log_model_v2,type=c("response"))
+dat_aux$prob=prob
+roc2 <- roc(Survived ~ prob, data = dat_aux)
+plot(roc2, main="ROC model v2")
+
+```
+
+```{r message= FALSE, warning=FALSE}
+auc_completelg <- auc(roc)
+auc_completelg
+auc_v1lg<-auc(roc1)
+auc_v1lg
+auc_v2lg<-auc(roc2)
+auc_v2lg
+```
+
+Tal com es veu en les execucions anteriors, en la visualització de la corba ROC no es veu cap diferència significativa de quin model és millor, a més a més, cal comentar que el valor de l'àrea sota la corba és molt similar en tots tres casos, ratificant el que s'ha vist en les dues proves anteriors.
+
+Per últim, es mostra una taula comparativa de les dades recollides anteriorment.
+
+```{r message= FALSE, warning=FALSE}
+complet_log <- c(round(as.numeric(completelg$overall["Accuracy"]), 2),
+                 round(as.numeric(completelg$byClass["Sensitivity"]), 2),
+                 round(as.numeric(completelg$byClass["Specificity"]), 2), 
+                 round(as.numeric(auc_completelg), 2))
+v1_log <- c(round(as.numeric(v1lg$overall["Accuracy"]), 2),
+            round(as.numeric(v1lg$byClass["Sensitivity"]), 2),
+            round(as.numeric(v1lg$byClass["Specificity"]), 2), 
+            round(as.numeric(auc_v1lg), 2))
+v2_log <- c(round(as.numeric(v2lg$overall["Accuracy"]), 2),
+            round(as.numeric(v2lg$byClass["Sensitivity"]), 2),
+            round(as.numeric(v2lg$byClass["Specificity"]), 2), 
+            round(as.numeric(auc_v2lg), 2))
+
+result_table <- data.frame(rbind(complet_log, v1_log, v2_log))
+names(result_table) <- c("Precisió","Sensibilitat","Specificitat","AUC")
+result_table
+```
+
+Com a conclusió dels models logístics, es pot dir que no hi ha diferència entre models i, per tant, es pot utilitzar el model amb menys variables, ja que per jocs de dades molt grans pot suposar un augment en la rapidesa d'aquest en predir.
+
+## 5.4. Random forest
+
+En aquest apartat, s'entrenarà un model basat en l'algoritme *random forest* per a fer una predicció de quins són els individus que sobreviuen. Per a poder avaluar-lo, s'utilitzarà la tècnica de *cross-validation* igual que en l'apartat anterior.
+
+A més a més, també s'entrenaran tres models fixant-nos en els criteris establerts anteriorment per a veure si utilitzant un model basat en *random forest* hi ha diferències entre aquests.
+
+```{r message= FALSE, warning=FALSE}
+# complete
+data_train<-aux_titanic[h$tr,]
+data_test<-aux_titanic[h$ts,]
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived~., data=data_train, method="rf", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+completerf<-confusionMatrix(pred, data_test$Survived, positive = "yes")
+completerf
+```
+
+```{r message= FALSE, warning=FALSE}
+# v1
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived ~ Pclass + Sex + Age + SibSp + family, data=data_train, 
+           method="rf", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+v1rf<-confusionMatrix(pred, data_test$Survived, positive = "yes")
+v1rf
+```
+
+```{r message= FALSE, warning=FALSE}
+# v2
+train_control<- trainControl(method="cv", number=10)
+mod<-train(Survived ~ Sex + Pclass + Fare + family + Embarked + Age, 
+           data=data_train, method="rf", trControl = train_control)
+pred <- predict(mod, newdata=data_test)
+v2rf<-confusionMatrix(pred, data_test$Survived, positive = "yes")
+v2rf
+```
+
+Si es comparen els resultats entre models, es pot veure que, igual que en el cas del model de regressió logística, no hi ha una gran diferència entre els resultats dels models, sent la precisió una mica més alta que en el cas anterior, al voltant d'un 80%, però sense ser significativament més alta que en els de regressió. Per tant, no es pot afirmar que aquests models basats en *random forest* siguin millor que els anteriors.
+
+Per últim, es mostra una taula comparativa de les dades recollides.
+
+```{r message= FALSE, warning=FALSE}
+complet_rf <- c(round(as.numeric(completerf$overall["Accuracy"]), 2),
+                round(as.numeric(completerf$byClass["Sensitivity"]), 2),
+                round(as.numeric(completerf$byClass["Specificity"]), 2))
+v1_rf <- c(round(as.numeric(v1rf$overall["Accuracy"]), 2),
+           round(as.numeric(v1rf$byClass["Sensitivity"]), 2),
+           round(as.numeric(v1rf$byClass["Specificity"]), 2))
+v2_rf <- c(round(as.numeric(v2rf$overall["Accuracy"]), 2),
+           round(as.numeric(v2rf$byClass["Sensitivity"]), 2),
+           round(as.numeric(v2rf$byClass["Specificity"]), 2))
+
+result_table <- data.frame(rbind(complet_rf, v1_rf, v2_rf))
+names(result_table) <- c("Precisió","Sensibilitat","Especificitat")
+result_table
+```
+
+# 6. Presentació de resultats
+
+Un cop avaluat els diferents models, es pot mostrar els resultats de tots ells, a més a més, fer una comparativa per a veure les seves similituds i diferències. Primerament, es mostra en una taula i en forma de diagrama de barres de les mètriques de precisió, sensibilitat i especificitat dels diferents models.
+
+```{r message= FALSE, warning=FALSE}
+complet_rf <- c("complete RF",
+                round(as.numeric(completerf$overall["Accuracy"]), 2),
+                round(as.numeric(completerf$byClass["Sensitivity"]), 2),
+                round(as.numeric(completerf$byClass["Specificity"]), 2))
+v1_rf <- c("V1 RF", 
+           round(as.numeric(v1rf$overall["Accuracy"]), 2),
+           round(as.numeric(v1rf$byClass["Sensitivity"]), 2),
+           round(as.numeric(v1rf$byClass["Specificity"]), 2))
+v2_rf <- c("V2 RF",
+           round(as.numeric(v2rf$overall["Accuracy"]), 2),
+           round(as.numeric(v2rf$byClass["Sensitivity"]), 2),
+           round(as.numeric(v2rf$byClass["Specificity"]), 2))
+complet_log <- c("complete log",
+                 round(as.numeric(completelg$overall["Accuracy"]), 2),
+                 round(as.numeric(completelg$byClass["Sensitivity"]), 2),
+                 round(as.numeric(completelg$byClass["Specificity"]), 2))
+v1_log <- c("V1 log",
+            round(as.numeric(v1lg$overall["Accuracy"]), 2),
+            round(as.numeric(v1lg$byClass["Sensitivity"]), 2),
+            round(as.numeric(v1lg$byClass["Specificity"]), 2))
+v2_log <- c("V2 log",
+            round(as.numeric(v2lg$overall["Accuracy"]), 2),
+            round(as.numeric(v2lg$byClass["Sensitivity"]), 2),
+            round(as.numeric(v2lg$byClass["Specificity"]), 2))
+
+result_table <- data.frame(rbind(complet_rf, v1_rf, v2_rf, complet_log, v1_log, v2_log))
+names(result_table) <- c("Name","Precisió","Sensibilitat","Especificitat")
+result_table
+mdat <- melt(result_table, id.vars="Name")
+mdat$value <- round(as.numeric(mdat$value),2)
+
+ggplot(mdat, aes(variable, value, fill=Name)) + 
+geom_bar(stat="identity", position="dodge") + 
+scale_y_continuous(breaks = seq(0, 1, by=0.1), limits= c(0,1)) + 
+xlab("Mesura") +
+ggtitle("Comparativa entre models")
+```
+
+Si s'observa la taula mostrada, es pot veure que els models basats en els algorismes *random forest* estan alguns punts per sobre en el percentatge de totes les mesures. Cal dir que aquests són algoritmes més complexos i, per tant, més lents d'executar. A més a més, si es mira mètrica per mètrica, es pot veure que els models construïts basants en el *random forest* amb totes les dades i amb la versió 2, és a dir, la que prioritza les variables amb coeficient de correlació superior a 0.10, tenen, en general, un percentatge més alt en precisió, sensibilitat i especificitat.
+
+Com que tots els models tenen valors similars en les mètriques, la seva elecció vindrà determinada per la mesura que vulguem prioritzar, és a dir, si es vol un algorisme més senzill amb bona sensibilitat, es pot escollir el de regressió logística amb versió 2, així es tindrà rapidesa, menys processament de dades i bona sensibilitat. En canvi, si es vol la màxima precisió, s'ha d'utilitzar el model complet_RF o V2_rf, sent el segon més lleuger, ja que processa menys dades.
+
+# 7. Conclusions
+
+L'objectiu d'aquest estudi era poder predir si hi ha un individu havia sobreviscut a l'accident del Titànic tenint en compte els paràmetres: sexe, edat, nombre de germans, marits i mullers a bord, nombre de fills i pares a bord, número del tiquet, tarifa del passatger, número de cabina i port de l’embarcació. 
+
+Primerament, s'ha fet un anàlisi per trobar anomalies en les dades, com per exemple valors extrems, seguit d'una neteja de dades, un analísi de dades i, finalment, una construcció de diversos models basats en dos tipus diferents d'algorisme per intentar predir si els individus sobreviurien.
+
+Finalment, després de la construcció del model utilitzant les dades processades en apartats anteriors, es pot concloure que amb una precisió al voltant del 80% d'encert, sí que es pot predir si un individu sobreviuria o no ho farà utilitzant els paràmetres donats.
+
+# 8. Referències
+1. Dalgaard, P. (2002). Introductory statistics with R. Springer Science & Business Media.
+2. Calvo, M.; Pérez, D.O.; Subirats,L. (2019). Introducció a la neteja i anàlisi de dades. Material UOC.
+3. Test for homogeneity of variances - Lavene’s test and the Fligner Killeen test (2016)
+[en línea]. bioSt@TS. [Consulta: 26 de diciembre de 2017] https://biostats.w.uib.no/
+test-for-homogeneity-of-variances-levenes-test/
