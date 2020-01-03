@@ -6,9 +6,12 @@ Aquest repositori és la solució a la pràctica 2 de l'assignatura Tipologia i 
 ## Membres de l'equip
 Aquesta activitat ha estat realitzada de forma individual per **Marc Guerrero Molero**.
   
-## Fitxers.
+## Fitxers
 _code/titanic_cleaning.rmd_: Únic fitxer de codi.
+
 _code/titanic_cleaning.pdf_: Informe.
+
 _data/titanic.csv_: Fitxer de dades sense tractar.
+
 _data/titanic_clean.csv_: Fitxer de dades tractat.
 
